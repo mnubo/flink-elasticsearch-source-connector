@@ -38,7 +38,22 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         (null, false, 98765432109L, null, "sd2")
       )
     }
-    "Fetch an empty DataSet from Elasticsearch to a Scala tuple" in {
+    "Fetch a DataSet from Elasticsearch to a Pojo" in {
+      val sut = ElasticsearchDataset.fromElasticsearch1xQuery[PojoESDocument](
+        ExecutionEnvironment.getExecutionEnvironment,
+        Index,
+        """{"fields": ["some_string","some_boolean","some_long","some_date","sub_doc.sub_doc_id"]}""",
+        Set(es.host),
+        es.httpPort,
+        pojoFields = Array("str", "boo", "lon", "date", "sub")
+      )
+
+      sut.collect() should contain only(
+        new PojoESDocument("abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"),
+        new PojoESDocument(null, false, 98765432109L, null, "sd2")
+      )
+    }
+    "Fetch an empty DataSet from Elasticsearch" in {
       val sut = ElasticsearchDataset.fromElasticsearch1xQuery[(String, Boolean, Long, String, String)](
         ExecutionEnvironment.getExecutionEnvironment,
         EmptyIndex,

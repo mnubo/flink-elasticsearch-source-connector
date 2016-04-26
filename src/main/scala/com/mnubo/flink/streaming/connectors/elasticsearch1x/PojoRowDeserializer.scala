@@ -14,7 +14,8 @@ class PojoRowDeserializer[T](typeInfo: PojoTypeInfo[T], fieldNames: Array[String
     require(typeInfo.getFieldIndex(name) >= 0, s"$name is not part of POJO type ${typeClass.getCanonicalName}")
   }
 
-  private val typeFields = {
+  @transient // Serialization trick from heavens when dealing with non serializable stuff :)
+  private lazy val typeFields = {
     val nameToField = findAllFieldsIn(typeClass)
     fieldNames.map(nameToField)
   }
