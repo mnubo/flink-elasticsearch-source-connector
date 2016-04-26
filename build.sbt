@@ -1,3 +1,5 @@
+enablePlugins(MnuboLibraryPlugin)
+
 name := "flink-elasticsearch-source-connector"
 
 crossPaths := true
