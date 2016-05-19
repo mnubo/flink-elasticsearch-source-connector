@@ -1,6 +1,6 @@
 package com.mnubo.flink.streaming.connectors
 
-import com.mnubo.flink.streaming.connectors.elasticsearch1x.{Elasticseach1xInputFormat, PojoRowDeserializer, TupleRowDeserializer}
+import com.mnubo.flink.streaming.connectors.elasticsearch1x.Elasticseach1xInputFormat
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.java.operators.DataSource
 import org.apache.flink.api.java.typeutils.{PojoTypeInfo, TupleTypeInfoBase}
@@ -31,33 +31,37 @@ object ElasticsearchDataset {
                                                               nodes: Set[String] = Set("localhost"),
                                                               port: Int = 9200,
                                                               pojoFields: Array[String] = null): DataSet[T] = {
-        val typeInfo = implicitly[TypeInformation[T]]
+    val clazz =
+      implicitly[ClassTag[T]].runtimeClass
 
-        val inputFormat =
-          typeInfo match {
-            case info: TupleTypeInfoBase[T] =>
-              new Elasticseach1xInputFormat[T](
-                nodes,
-                port,
-                index,
-                query,
-                new TupleRowDeserializer[T](typeInfo.asInstanceOf[TupleTypeInfoBase[T]])
-              )
-            case info: PojoTypeInfo[T] =>
-              require(pojoFields != null, "POJO fields must be specified (not null) if output type is a POJO.")
+    val marshaller =
+      if (clazz == classOf[DataRow])
+        new DataRowRecordMarshaller().asInstanceOf[RecordMarshaller[T]]
+      else
+        implicitly[TypeInformation[T]] match {
+          case info: TupleTypeInfoBase[T] =>
+            new TupleRecordMarshaller[T](info)
+          case info: PojoTypeInfo[T] =>
+            require(pojoFields != null, "POJO fields must be specified (not null) if output type is a POJO.")
+            new PojoRecordMarshaller[T](info, pojoFields)
+          case other =>
+            throw new IllegalArgumentException(s"The type ${clazz.getName} has to be a tuple, a DataRow or pojo type.")
+        }
 
-              new Elasticseach1xInputFormat[T](
-                nodes,
-                port,
-                index,
-                query,
-                new PojoRowDeserializer[T](typeInfo.asInstanceOf[PojoTypeInfo[T]], pojoFields)
-              )
-            case _ =>
-              throw new IllegalArgumentException(s"The type $typeInfo has to be a tuple or pojo type.")
-          }
+    val inputFormat =
+      new Elasticseach1xInputFormat[T](
+        nodes,
+        port,
+        index,
+        query,
+        marshaller
+      )
 
-        new DataSet[T](new DataSource[T](env.getJavaEnv, inputFormat, typeInfo, getCallLocationName()))
+    // Not the most elegant, but can't wait for the input format to be configured to get the actual schema. Have to get it now.
+    val schema = inputFormat.fetchSchema()
+    marshaller.configureFields(schema)
+
+    new DataSet[T](new DataSource[T](env.getJavaEnv, inputFormat, marshaller.typeInformation, getCallLocationName()))
   }
 
 

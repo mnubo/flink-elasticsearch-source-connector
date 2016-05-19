@@ -1,6 +1,6 @@
 package com.mnubo.flink.streaming.connectors.elasticsearch1x
 
-import com.mnubo.flink.streaming.connectors.ElasticsearchDataset
+import com.mnubo.flink.streaming.connectors.{DataRow, ElasticsearchDataset}
 import org.apache.flink.api.scala._
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
@@ -10,7 +10,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
   private val es = new ElasticsearchTestServer()
 
   "The Elasticseach 1.X input format" should {
-    "Fetch a DataSet from Elasticsearch to a case class" in {
+    "fetch a DataSet from Elasticsearch to a case class" in {
       val sut = ElasticsearchDataset.fromElasticsearch1xQuery[CaseESDocument](
         ExecutionEnvironment.getExecutionEnvironment,
         Index,
@@ -22,9 +22,30 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
       sut.collect() should contain only(
         CaseESDocument("abc", boo = true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"),
         CaseESDocument(null, boo = false, 98765432109L, null, "sd2")
+        )
+    }
+    "fetch a DataSet from Elasticsearch to a data row" in {
+      val sut = ElasticsearchDataset.fromElasticsearch1xQuery[DataRow](
+        ExecutionEnvironment.getExecutionEnvironment,
+        Index,
+        """{"fields": ["some_string","some_boolean","some_long","some_date","sub_doc.sub_doc_id"]}""",
+        Set(es.host),
+        es.httpPort
+      )
+
+      val res = sut.collect()
+      println(res)
+      res should contain only(
+        DataRow(
+          "abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"
+        ),
+        DataRow(
+          Array(null, false, 98765432109L, null, "sd2"),
+          classOf[String], classOf[Boolean], classOf[Long], classOf[String], classOf[String]
+        )
       )
     }
-    "Fetch a DataSet from Elasticsearch to a Scala tuple" in {
+    "fetch a DataSet from Elasticsearch to a Scala tuple" in {
       val sut = ElasticsearchDataset.fromElasticsearch1xQuery[(String, Boolean, Long, String, String)](
         ExecutionEnvironment.getExecutionEnvironment,
         Index,
@@ -38,7 +59,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         (null, false, 98765432109L, null, "sd2")
       )
     }
-    "Fetch a DataSet from Elasticsearch to a Pojo" in {
+    "fetch a DataSet from Elasticsearch to a Pojo" in {
       val sut = ElasticsearchDataset.fromElasticsearch1xQuery[PojoESDocument](
         ExecutionEnvironment.getExecutionEnvironment,
         Index,
@@ -53,7 +74,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         new PojoESDocument(null, false, 98765432109L, null, "sd2")
       )
     }
-    "Fetch an empty DataSet from Elasticsearch" in {
+    "fetch an empty DataSet from Elasticsearch" in {
       val sut = ElasticsearchDataset.fromElasticsearch1xQuery[(String, Boolean, Long, String, String)](
         ExecutionEnvironment.getExecutionEnvironment,
         EmptyIndex,
