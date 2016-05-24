@@ -3,11 +3,12 @@ package com.mnubo.flink.streaming.connectors
 import java.util
 
 import org.apache.flink.api.common.typeutils.TypeSerializer
+import org.apache.flink.api.java.typeutils.runtime.TupleSerializerBase
 import org.apache.flink.core.memory.{DataInputView, DataOutputView}
 import org.apache.flink.types.NullFieldException
 
-class DataRowSerializer(private val typeInfo: DataRowTypeInfo, private val fieldSerializers: Array[TypeSerializer[_]]) extends TypeSerializer[DataRow] {
-  require(typeInfo.getArity == fieldSerializers.length, "typeInfo arity should be the same as fieldSerializers")
+class DataRowSerializer(private val typeInfo: DataRowTypeInfo, private val elementSerializers: Array[TypeSerializer[_]]) extends TupleSerializerBase[DataRow](classOf[DataRow], elementSerializers) {
+  require(typeInfo.getArity == elementSerializers.length, "typeInfo arity should be the same as elementSerializers")
 
   override def createInstance() =
     new DataRow(Array.fill[Any](typeInfo.getArity)(null), typeInfo)
@@ -25,39 +26,45 @@ class DataRowSerializer(private val typeInfo: DataRowTypeInfo, private val field
     canEqual(other) && {
       val drs = other.asInstanceOf[DataRowSerializer]
 
-      fieldSerializers.sameElements(drs.fieldSerializers) && typeInfo == drs.typeInfo
+      elementSerializers.sameElements(drs.elementSerializers) && typeInfo == drs.typeInfo
     }
 
   override def hashCode =
-    31 * util.Arrays.hashCode(fieldSerializers.asInstanceOf[Array[AnyRef]]) + typeInfo.hashCode()
+    31 * util.Arrays.hashCode(elementSerializers.asInstanceOf[Array[AnyRef]]) + typeInfo.hashCode()
 
   override def duplicate() = {
-    val duplicatedFieldSerializers = fieldSerializers.map(_.duplicate())
+    val duplicatedFieldSerializers = elementSerializers.map(_.duplicate())
 
-    if (duplicatedFieldSerializers.indices.exists(i => duplicatedFieldSerializers(i) != fieldSerializers(i)))
+    if (duplicatedFieldSerializers.indices.exists(i => duplicatedFieldSerializers(i) != elementSerializers(i)))
       new DataRowSerializer(typeInfo, duplicatedFieldSerializers)
     else
       this
   }
 
-  override def copy(from: DataRow) =
+  override def copy(from: DataRow): DataRow =
     new DataRow(
-      from.data.zipWithIndex.map { case (elt, i) => fieldSerializers(i).asInstanceOf[TypeSerializer[Any]].copy(elt) },
+      from.data.zipWithIndex.map { case (elt, i) => elementSerializers(i).asInstanceOf[TypeSerializer[Any]].copy(elt) },
       typeInfo
     )
 
-  override def copy(from: DataRow, reuse: DataRow) = {
+  override def copy(from: DataRow, reuse: DataRow): DataRow = {
     reuse
       .data
       .indices
       .foreach { i =>
-        reuse.data(i) = fieldSerializers(i).asInstanceOf[TypeSerializer[Any]].copy(from.data(i), reuse.data(i))
+        reuse.data(i) = elementSerializers(i).asInstanceOf[TypeSerializer[Any]].copy(from.data(i), reuse.data(i))
       }
 
     reuse
   }
 
-  def createOrReuseInstance(fields: Seq[AnyRef], reuse: DataRow) = {
+  override def createInstance(fields: Array[AnyRef]): DataRow =
+    new DataRow(
+      fields.map(_.asInstanceOf[Any]),
+      typeInfo
+    )
+
+  override def createOrReuseInstance(fields: Array[AnyRef], reuse: DataRow) = {
     reuse
       .data
       .indices
@@ -69,14 +76,14 @@ class DataRowSerializer(private val typeInfo: DataRowTypeInfo, private val field
   }
 
   override def copy(source: DataInputView, target: DataOutputView) =
-    fieldSerializers.foreach(fs => fs.copy(source, target))
+    elementSerializers.foreach(fs => fs.copy(source, target))
 
   override def serialize(record: DataRow, target: DataOutputView) =
-    fieldSerializers
+    elementSerializers
       .indices
       .foreach { i =>
         try {
-          fieldSerializers(i)
+          elementSerializers(i)
             .asInstanceOf[TypeSerializer[Any]]
             .serialize(record.data(i), target)
         }
@@ -88,15 +95,15 @@ class DataRowSerializer(private val typeInfo: DataRowTypeInfo, private val field
 
   override def deserialize(source: DataInputView) =
     new DataRow(
-      fieldSerializers.map(fs => fs.deserialize(source)),
+      elementSerializers.map(fs => fs.deserialize(source)),
       typeInfo
     )
 
   override def deserialize(reuse: DataRow, source: DataInputView) = {
-    fieldSerializers
+    elementSerializers
       .indices
       .foreach { i =>
-        reuse.data(i) = fieldSerializers(i).asInstanceOf[TypeSerializer[Any]].deserialize(reuse.data(i), source)
+        reuse.data(i) = elementSerializers(i).asInstanceOf[TypeSerializer[Any]].deserialize(reuse.data(i), source)
       }
 
     reuse

@@ -91,7 +91,7 @@ class Elasticseach1xInputFormat[T](nodes: Set[String],
       schema =
         queriedFields
           .map { case (queryFieldName, _) =>
-              val normalizedFieldName = queryFieldName.replace(".", "::")
+              val normalizedFieldName = queryFieldName
 
               require(allFields.contains(normalizedFieldName), s"Cannot found a field with a supported type named '$queryFieldName' in Elasticsearch index mapping '$index'")
 
@@ -110,12 +110,12 @@ class Elasticseach1xInputFormat[T](nodes: Set[String],
     case Nil =>
       acc
     case x :: xs =>
-      val fieldName = prefix + x.getKey.replace(".", "::")
+      val fieldName = prefix + x.getKey
 
       // nested object or array
       if (x.getValue.has("properties")) {
         val subProperties = x.getValue.get("properties").fields().asScala.toList
-        fetchProperties(subProperties ::: xs, fieldName + "::", acc)
+        fetchProperties(subProperties ::: xs, fieldName + ".", acc)
       }
       // simple type
       else {

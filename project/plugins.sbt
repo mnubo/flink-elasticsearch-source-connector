@@ -1,7 +1,9 @@
-resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
+//addSbtPlugin("com.typesafe"     % "sbt-mima-plugin"      % "0.1.8")
+addSbtPlugin("com.typesafe.sbt" % "sbt-javaversioncheck" % "0.1.0")
+//addSbtPlugin("com.eed3si9n"     % "sbt-buildinfo"        % "0.3.0")
+//addSbtPlugin("com.typesafe.sbt" % "sbt-start-script"     % "0.10.0")
+addSbtPlugin("org.xerial.sbt"   % "sbt-sonatype"         % "1.0")
+addSbtPlugin("com.jsuereth"     % "sbt-pgp"              % "1.0.0")
+addSbtPlugin("com.timushev.sbt" % "sbt-updates"          % "0.1.10")
 
-val latestPluginVersion = Using.urlInputStream(new URL("http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/com/mnubo/mnubo-sbt-plugin_2.10_0.13/maven-metadata.xml")) { stream =>
- """<latest>([\d\.]+)</latest>""".r.findFirstMatchIn(IO.readStream(stream)).get.group(1)
-}
-
-addSbtPlugin("com.mnubo" % "mnubo-sbt-plugin" % latestPluginVersion)
+scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")

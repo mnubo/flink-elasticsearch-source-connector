@@ -40,8 +40,8 @@ class DataRowSpec extends WordSpec with Matchers {
     "allow to get values by name" in {
       val sut = DataRow(2, "abc")
 
-      sut[Int]("0") shouldEqual 2
-      sut[String]("1") shouldEqual "abc"
+      sut[Int]("dr0") shouldEqual 2
+      sut[String]("dr1") shouldEqual "abc"
     }
     "implement Product" in {
       val sut = DataRow(2, "abc")

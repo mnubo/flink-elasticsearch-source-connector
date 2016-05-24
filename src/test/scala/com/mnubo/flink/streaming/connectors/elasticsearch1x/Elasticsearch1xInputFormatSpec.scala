@@ -19,7 +19,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         es.httpPort
       )
 
-      sut.collect() should contain only(
+      sut.filter(_.str != "def").collect() should contain only(
         CaseESDocument("abc", boo = true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"),
         CaseESDocument(null, boo = false, 98765432109L, null, "sd2")
         )
@@ -33,9 +33,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         es.httpPort
       )
 
-      val res = sut.collect()
-      println(res)
-      res should contain only(
+      sut.filter(_[String]("some_string") != "def").collect() should contain only(
         DataRow(
           "abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"
         ),
@@ -44,6 +42,24 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
           classOf[String], classOf[Boolean], classOf[Long], classOf[String], classOf[String]
         )
       )
+    }
+    "fetch a DataSet from Elasticsearch to a data row and perform fancy logic" in {
+      val sut = ElasticsearchDataset.fromElasticsearch1xQuery[DataRow](
+        ExecutionEnvironment.getExecutionEnvironment,
+        Index,
+        """{"fields": ["some_string","some_boolean","some_long","some_date","sub_doc.sub_doc_id"]}""",
+        Set(es.host),
+        es.httpPort
+      )
+
+      sut
+        .groupBy("sub_doc.sub_doc_id")
+        .sum(2)
+        .map(row => (row[Long]("some_long"), row[String]("sub_doc.sub_doc_id")))
+        .collect() should contain only(
+          (98765432109L, "sd2"),
+          (12345678911L, "sd1")
+        )
     }
     "fetch a DataSet from Elasticsearch to a Scala tuple" in {
       val sut = ElasticsearchDataset.fromElasticsearch1xQuery[(String, Boolean, Long, String, String)](
@@ -54,7 +70,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         es.httpPort
       )
 
-      sut.collect() should contain only(
+      sut.filter(_._1 != "def").collect() should contain only(
         ("abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"),
         (null, false, 98765432109L, null, "sd2")
       )
@@ -69,7 +85,7 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
         pojoFields = Array("str", "boo", "lon", "date", "sub")
       )
 
-      sut.collect() should contain only(
+      sut.filter(_.str != "def").collect() should contain only(
         new PojoESDocument("abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"),
         new PojoESDocument(null, false, 98765432109L, null, "sd2")
       )
@@ -126,6 +142,11 @@ class Elasticsearch1xInputFormatSpec extends WordSpec with Matchers with BeforeA
     es.client
       .prepareIndex(Index, DocType)
       .setSource("""{"some_string": "abc", "some_boolean": "true", "some_long": 12345678901, "some_date": "2016-04-25T21:54:23.321Z", "sub_doc": {"sub_doc_id": "sd1"}}""")
+      .get
+
+    es.client
+      .prepareIndex(Index, DocType)
+      .setSource("""{"some_string": "def", "some_boolean": "true", "some_long": 10, "some_date": "2015-04-25T21:54:23.321Z", "sub_doc": {"sub_doc_id": "sd1"}}""")
       .get
 
     es.client

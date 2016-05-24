@@ -64,7 +64,7 @@ object DataRow {
     require(types != null, "types cannot be null")
     require(data.length == types.size, "data must have the same size as types")
 
-    val names = data.indices.map(_.toString)
+    val names = data.indices.map(i => s"dr$i")
 
     val typeInfos = types.indices.map { i =>
       require(isAssignable(data(i), types(i)), s"data element $i '${data(i)}' is not compatible with class ${types(i).getName}")
