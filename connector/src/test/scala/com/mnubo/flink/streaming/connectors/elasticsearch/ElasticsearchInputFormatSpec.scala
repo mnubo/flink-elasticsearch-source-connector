@@ -41,7 +41,7 @@ abstract class ElasticsearchInputFormatSpec extends WordSpec with Matchers with 
       )
 
       sut.filter(_[String]("some_string") != "def").collect() should contain only(
-        DataRow(
+        DataRow.fromElements(
           "abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"
         ),
         DataRow(

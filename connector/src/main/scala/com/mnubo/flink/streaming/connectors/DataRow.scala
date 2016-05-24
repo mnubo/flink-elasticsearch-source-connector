@@ -48,14 +48,26 @@ object DataRow {
     *
     * Nulls are not supported.
     */
-  def apply(data: Any*): DataRow = {
+  def fromElements(data: Any*): DataRow = {
     require(data != null, "data cannot be null")
 
-    apply(data.toArray, data.map(_.getClass): _*)
+    apply(data.toArray)
   }
 
   /**
-    * Builds a DataRow with the given schema.
+    * Builds a DataRow, inferring the schema by looking at the given values.
+    *
+    * Nulls are not supported.
+    */
+  def apply(data: Array[Any]): DataRow = {
+    require(data != null, "data cannot be null")
+    data.foreach(elt => require(elt != null, "data elements cannot be null"))
+
+    apply(data, data.map(_.getClass): _*)
+  }
+
+  /**
+    * Builds a DataRow with the given typed schema.
     *
     * Nulls are supported.
     */
@@ -65,6 +77,42 @@ object DataRow {
     require(data.length == types.size, "data must have the same size as types")
 
     val names = data.indices.map(i => s"dr$i")
+
+    val typeInfos = types.indices.map { i =>
+      require(isAssignable(data(i), types(i)), s"data element $i '${data(i)}' is not compatible with class ${types(i).getName}")
+      TypeExtractor.createTypeInfo(types(i))
+    }
+
+    new DataRow(data, new DataRowTypeInfo(names, typeInfos))
+  }
+
+  /**
+    * Builds a DataRow with the given named schema.
+    *
+    * Nulls are not supported.
+    */
+  def apply(data: Array[Any], names:Array[String]): DataRow = {
+    require(data != null, "data cannot be null")
+    require(names != null, "names cannot be null")
+
+    val types = data.map(_.getClass)
+
+    apply(data, names, types)
+  }
+
+  /**
+    * Builds a DataRow with the given named and typed schema.
+    *
+    * Nulls are supported.
+    */
+  def apply(data: Array[Any], names:Array[String], types:Array[java.lang.Class[_]]): DataRow = {
+    require(data != null, "data cannot be null")
+    require(names != null, "names cannot be null")
+    require(types != null, "types cannot be null")
+    require(data.length == names.length, "data must have the same size as names")
+    require(data.length == types.length, "data must have the same size as types")
+    require(names.count(name => name == null) == 0, "each name must not be null")
+    require(names.map(_.trim()).sameElements(names), "each name must be trimmed")
 
     val typeInfos = types.indices.map { i =>
       require(isAssignable(data(i), types(i)), s"data element $i '${data(i)}' is not compatible with class ${types(i).getName}")
