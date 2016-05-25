@@ -22,7 +22,7 @@ class ElasticsearchTestServer(version: String, isClusterGreen: (String, Int) => 
   val httpPort = esPort(9200)
   val esTransportPort = esPort(9300)
 
-  eventually(timeout(15.seconds), interval(500.millis)) {
+  eventually(timeout(20.seconds), interval(500.millis)) {
     require(hasRecoveredIndicesState && isClusterGreen(host, esTransportPort), "ES Still not started...")
   }
 

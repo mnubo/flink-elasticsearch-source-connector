@@ -30,7 +30,7 @@ Allow to pipe the result of an Elasticsearch query into a Flink data set. Suppor
       esHttpPort
     )
 
-    dataset
+    dataSet
       .groupBy("sub_doc.sub_doc_id")
       .sum(2)
       .print

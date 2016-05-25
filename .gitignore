@@ -19,3 +19,4 @@ dist
 *.egg
 .cache
 version.meta
+.java-version
