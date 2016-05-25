@@ -1,10 +1,46 @@
 package com.mnubo.flink.streaming.connectors
 
 import org.apache.commons.lang3.ClassUtils
+import org.apache.flink.api.common.operators.Keys.ExpressionKeys._
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.api.common.typeutils.CompositeType.InvalidFieldReferenceException
 import org.apache.flink.api.java.typeutils.TypeExtractor
+
 import scala.language.existentials
 
-class DataRow(private [connectors] val data: Array[Any], info: DataRowTypeInfo) extends Product with Serializable {
+sealed trait FieldSpecification
+
+case object AllFields extends FieldSpecification
+
+case class Field(name: String) extends FieldSpecification
+
+case class Value(v: Any, name: String, givenTypeInfo: Option[TypeInformation[_]] = None) extends FieldSpecification {
+  require(v != null || givenTypeInfo.isDefined, "You must pass a TypeInformation for null values")
+
+  val typeInfo = givenTypeInfo match {
+    case Some(ti) => ti
+    case None => TypeExtractor.getForObject(v)
+  }
+
+  require(isAssignable(v, typeInfo.getTypeClass), s"data element '$v' is not compatible with class ${typeInfo.getTypeClass.getName}")
+
+  private def isAssignable(value: Any, cl: Class[_]) = {
+    if (value == null && classOf[AnyRef].isAssignableFrom(cl))
+      true
+    else
+      ClassUtils.isAssignable(value.getClass, cl)
+  }
+}
+
+object Value {
+  def apply(v: Any, name: String, givenTypeInfo: TypeInformation[_]) = {
+    new Value(v, name, Some(givenTypeInfo))
+  }
+}
+
+
+
+class DataRow(private [connectors] val data: Array[Any], private [connectors] val info: DataRowTypeInfo) extends Product with Serializable {
   require(data != null, "data must not be null")
   require(info != null, "info must not be null")
   require(data.length == info.getArity, "data must be of the correct arity")
@@ -25,7 +61,7 @@ class DataRow(private [connectors] val data: Array[Any], info: DataRowTypeInfo) 
     that.isInstanceOf[DataRow]
 
   override def equals(that: Any) =
-    canEqual(that) && data.sameElements(that.asInstanceOf[DataRow].data) // Should it also have the same schema?
+    canEqual(that) && data.sameElements(that.asInstanceOf[DataRow].data) && info.getFieldNames.sameElements(that.asInstanceOf[DataRow].info.getFieldNames)
 
   override def hashCode = {
     var result = 1
@@ -37,95 +73,27 @@ class DataRow(private [connectors] val data: Array[Any], info: DataRowTypeInfo) 
   }
 
   override def toString =
-    data
-      .map(v => if (v == null) "null" else v.toString)
+    info.getFieldNames
+      .zip(data.map(v => if (v == null) "null" else v.toString))
+      .map{case (name, value) => s"$name=$value"}
       .mkString("DataRow(", ", ", ")")
 }
 
 object DataRow {
   /**
-    * Builds a DataRow, inferring the schema by looking at the given values.
-    *
-    * Nulls are not supported.
+    * Builds a DataRow.
     */
-  def fromElements(data: Any*): DataRow = {
+  def apply(data: Value*): DataRow = {
     require(data != null, "data cannot be null")
+    require(!data.contains(null), "data value cannot be null")
+    require(data.length == data.map(_.name).distinct.length, s"a name can be used only once. names were ${data.map(_.name)}")
 
-    apply(data.toArray)
-  }
-
-  /**
-    * Builds a DataRow, inferring the schema by looking at the given values.
-    *
-    * Nulls are not supported.
-    */
-  def apply(data: Array[Any]): DataRow = {
-    require(data != null, "data cannot be null")
-    data.foreach(elt => require(elt != null, "data elements cannot be null"))
-
-    apply(data, data.map(_.getClass): _*)
-  }
-
-  /**
-    * Builds a DataRow with the given typed schema.
-    *
-    * Nulls are supported.
-    */
-  def apply(data: Array[Any], types: Class[_]*): DataRow = {
-    require(data != null, "data cannot be null")
-    require(types != null, "types cannot be null")
-    require(data.length == types.size, "data must have the same size as types")
-
-    val names = data.indices.map(i => s"dr$i")
-
-    val typeInfos = types.indices.map { i =>
-      require(isAssignable(data(i), types(i)), s"data element $i '${data(i)}' is not compatible with class ${types(i).getName}")
-      TypeExtractor.createTypeInfo(types(i))
-    }
-
-    new DataRow(data, new DataRowTypeInfo(names, typeInfos))
-  }
-
-  /**
-    * Builds a DataRow with the given named schema.
-    *
-    * Nulls are not supported.
-    */
-  def apply(data: Array[Any], names:Array[String]): DataRow = {
-    require(data != null, "data cannot be null")
-    require(names != null, "names cannot be null")
-
-    val types = data.map(_.getClass)
-
-    apply(data, names, types)
-  }
-
-  /**
-    * Builds a DataRow with the given named and typed schema.
-    *
-    * Nulls are supported.
-    */
-  def apply(data: Array[Any], names:Array[String], types:Array[java.lang.Class[_]]): DataRow = {
-    require(data != null, "data cannot be null")
-    require(names != null, "names cannot be null")
-    require(types != null, "types cannot be null")
-    require(data.length == names.length, "data must have the same size as names")
-    require(data.length == types.length, "data must have the same size as types")
-    require(names.count(name => name == null) == 0, "each name must not be null")
-    require(names.map(_.trim()).sameElements(names), "each name must be trimmed")
-
-    val typeInfos = types.indices.map { i =>
-      require(isAssignable(data(i), types(i)), s"data element $i '${data(i)}' is not compatible with class ${types(i).getName}")
-      TypeExtractor.createTypeInfo(types(i))
-    }
-
-    new DataRow(data, new DataRowTypeInfo(names, typeInfos))
-  }
-
-  private def isAssignable(value: Any, cl: Class[_]) = {
-    if (value == null && classOf[AnyRef].isAssignableFrom(cl))
-      true
-    else
-      ClassUtils.isAssignable(value.getClass, cl)
+    new DataRow(
+      data.map(_.v).toArray,
+      new DataRowTypeInfo(
+        data.map(_.name),
+        data.map(_.typeInfo)
+      )
+    )
   }
 }

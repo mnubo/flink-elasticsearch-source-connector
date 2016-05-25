@@ -1,6 +1,7 @@
 package com.mnubo.flink.streaming.connectors
 package elasticsearch
 
+import org.apache.flink.api.java.typeutils.TypeExtractor
 import org.apache.flink.api.scala._
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
@@ -40,14 +41,15 @@ abstract class ElasticsearchInputFormatSpec extends WordSpec with Matchers with 
         es.httpPort
       )
 
+      def build(values:Any*) = {
+        val expectedTypes = Array[java.lang.Class[_]](classOf[String], classOf[Boolean], classOf[Long], classOf[String], classOf[String]).map(TypeExtractor.getForClass(_))
+        val expectedNames = Array("some_string","some_boolean","some_long","some_date","sub_doc.sub_doc_id")
+        DataRow(values.indices.map { i => Value(values(i), expectedNames(i), expectedTypes(i)) }: _*)
+      }
+
       sut.filter(_[String]("some_string") != "def").collect() should contain only(
-        DataRow.fromElements(
-          "abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"
-        ),
-        DataRow(
-          Array(null, false, 98765432109L, null, "sd2"),
-          classOf[String], classOf[Boolean], classOf[Long], classOf[String], classOf[String]
-        )
+        build("abc", true, 12345678901L, "2016-04-25T21:54:23.321Z", "sd1"),
+        build(null, false, 98765432109L, null, "sd2")
       )
     }
     "fetch a DataSet from Elasticsearch to a data row and perform fancy logic" in {
