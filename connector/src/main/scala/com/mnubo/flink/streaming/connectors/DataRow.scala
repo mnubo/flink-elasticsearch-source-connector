@@ -86,7 +86,6 @@ object DataRow {
   def apply(data: Value*): DataRow = {
     require(data != null, "data cannot be null")
     require(!data.contains(null), "data value cannot be null")
-    require(data.length == data.map(_.name).distinct.length, s"a name can be used only once. names were ${data.map(_.name)}")
 
     new DataRow(
       data.map(_.v).toArray,

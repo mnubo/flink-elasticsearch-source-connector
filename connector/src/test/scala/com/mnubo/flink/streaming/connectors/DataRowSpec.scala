@@ -1,9 +1,14 @@
 package com.mnubo.flink.streaming.connectors
 
+import org.apache.flink.api.java.typeutils.TypeExtractor
 import org.scalatest.{Matchers, WordSpec}
 
 class DataRowSpec extends WordSpec with Matchers {
   "A data row" should {
+    "not accept duplicate field names" in {
+      an[IllegalArgumentException] shouldBe thrownBy(DataRow(Value(1, "age"), Value("abc", "age")))
+      an[IllegalArgumentException] shouldBe thrownBy(DataRowTypeInfo(Seq("age", "age"), Seq(TypeExtractor.getForClass(classOf[String]), TypeExtractor.getForClass(classOf[String]))))
+    }
     "not accept null arguments" in {
       an[IllegalArgumentException] shouldBe thrownBy(DataRow(Value(null, "some_field")))
       an[IllegalArgumentException] shouldBe thrownBy(DataRow(null))
