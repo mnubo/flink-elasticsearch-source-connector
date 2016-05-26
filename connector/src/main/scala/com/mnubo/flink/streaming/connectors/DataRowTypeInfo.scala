@@ -28,6 +28,7 @@ case class DataRowTypeInfo(private val fieldNames: Seq[String], private val elem
   require(fieldNames != null, "fieldNames must not be null")
   require(elementTypes != null, "elementTypes must not be null")
   require(fieldNames.size == elementTypes.size, "fieldNames and elementTypes must have the same size")
+  require(fieldNames.size == fieldNames.distinct.size, s"a name can be used only once. names were $fieldNames")
 
   import DataRowTypeInfo._
 
