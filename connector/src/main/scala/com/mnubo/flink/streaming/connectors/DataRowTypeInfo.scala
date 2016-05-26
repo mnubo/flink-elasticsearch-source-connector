@@ -92,6 +92,14 @@ case class DataRowTypeInfo(private val fieldNames: Seq[String], private val elem
   override val getFieldNames =
     fieldNames.toArray
 
+  def getElementTypes =
+    elementTypes
+
+  def getFieldType(fieldName: String) = getFieldIndex(fieldName) match {
+    case -1 => throw new InvalidFieldReferenceException(fieldName)
+    case idx => elementTypes(idx)
+  }
+
   override def getFieldIndex(fieldName: String) =
     fieldNames.indexOf(fieldName)
 
