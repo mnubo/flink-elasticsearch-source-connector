@@ -14,18 +14,22 @@ import org.apache.flink.api.scala.typeutils.CaseClassComparator
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-case class DataRowTypeInfo(private val fieldNames: Seq[String], private val elementTypes: Seq[TypeInformation[_]]) extends TupleTypeInfoBase(classOf[DataRow], elementTypes: _*) {
-  require(fieldNames != null, "fieldNames must not be null")
-  require(elementTypes != null, "elementTypes must not be null")
-  require(fieldNames.size == elementTypes.size, "fieldNames and elementTypes must have the same size")
-
+object DataRowTypeInfo {
   // Notes:
   // \p{L} is the POSIX regex class of characters 'unicode letter'.
   // identifiers are composed of segments separated by a '.'.
   // each segment is composed of letters, digits, '_', and '$', but they cannot start with a digit.
   // alternatively, instead of a string of segments, the wildcards '_' or '*' alone can be used.
-  private val PATTERN_NESTED_FIELDS_WILDCARD =
+  protected[connectors] val PATTERN_NESTED_FIELDS_WILDCARD =
     Pattern.compile("""[\p{L}_\$][\p{L}\p{Digit}_\$]*(\..+)?|\""" + SELECT_ALL_CHAR + """|\""" + SELECT_ALL_CHAR_SCALA)
+
+}
+case class DataRowTypeInfo(private val fieldNames: Seq[String], private val elementTypes: Seq[TypeInformation[_]]) extends TupleTypeInfoBase(classOf[DataRow], elementTypes: _*) {
+  require(fieldNames != null, "fieldNames must not be null")
+  require(elementTypes != null, "elementTypes must not be null")
+  require(fieldNames.size == elementTypes.size, "fieldNames and elementTypes must have the same size")
+
+  import DataRowTypeInfo._
 
   override def getFlatFields(fieldExpression: String, offset: Int, result: JList[FlatFieldDescriptor]) = {
     val matcher = PATTERN_NESTED_FIELDS_WILDCARD.matcher(fieldExpression)

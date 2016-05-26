@@ -1,6 +1,6 @@
 package com.mnubo.flink.streaming.connectors
 
-import java.lang.reflect.Field
+import java.lang.reflect.{Field => RField}
 
 import org.apache.commons.lang3.ClassUtils
 import org.apache.flink.api.java.typeutils.PojoTypeInfo
@@ -56,7 +56,7 @@ class PojoRecordMarshaller[T](typeInfo: PojoTypeInfo[T], fieldNames: Array[Strin
   }
 
   @tailrec
-  private def findAllFieldsIn(clasz: Class[_], acc: Map[String, Field] = Map.empty): Map[String, Field] =
+  private def findAllFieldsIn(clasz: Class[_], acc: Map[String, RField] = Map.empty): Map[String, RField] =
     if (clasz == null)
       acc
     else {
