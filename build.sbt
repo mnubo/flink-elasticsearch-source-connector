@@ -5,7 +5,7 @@ val flinkVersion = "1.0.3"
 
 val commonSettings = Seq(
   organization := "com.mnubo",
-  version := "1.0.0-flink1",
+  version := "1.0.1-flink1",
   crossPaths := true,
   scalaVersion := "2.10.6",
   crossScalaVersions := Seq("2.10.6", "2.11.7"),
