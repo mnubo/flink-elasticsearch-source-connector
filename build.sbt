@@ -72,7 +72,6 @@ lazy val connector = (project in file("connector"))
           </developer>
         </developers>
     )},
-    sonatypeProfileName := "mnuboci",
     resolvers ++= Seq(Opts.resolver.sonatypeSnapshots, Opts.resolver.sonatypeReleases),
     pomIncludeRepository := { _ => false },
     crossVersion := CrossVersion.binary,
