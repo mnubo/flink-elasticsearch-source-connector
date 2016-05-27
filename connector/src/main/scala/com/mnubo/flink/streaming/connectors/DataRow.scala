@@ -1,20 +1,12 @@
 package com.mnubo.flink.streaming.connectors
 
 import org.apache.commons.lang3.ClassUtils
-import org.apache.flink.api.common.operators.Keys.ExpressionKeys._
 import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.api.common.typeutils.CompositeType.InvalidFieldReferenceException
 import org.apache.flink.api.java.typeutils.TypeExtractor
 
 import scala.language.existentials
 
-sealed trait FieldSpecification
-
-case object AllFields extends FieldSpecification
-
-case class Field(name: String) extends FieldSpecification
-
-case class Value(v: Any, name: String, givenTypeInfo: Option[TypeInformation[_]] = None) extends FieldSpecification {
+case class Value(v: Any, name: String, givenTypeInfo: Option[TypeInformation[_]] = None) {
   require(v != null || givenTypeInfo.isDefined, "You must pass a TypeInformation for null values")
 
   val typeInfo = givenTypeInfo match {
